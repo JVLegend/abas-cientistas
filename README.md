@@ -1,91 +1,92 @@
-# Tab Out
+# Abas Cientistas
 
-**Keep tabs on your tabs.**
+**Extensão Chrome criada e adaptada por João Victor para organizar abas abertas com lógica de cientista de dados.**
 
-Tab Out is a Chrome extension that replaces your new tab page with a dashboard of everything you have open. Tabs are grouped by domain, with homepages (Gmail, X, LinkedIn, etc.) pulled into their own group. Close tabs with a satisfying swoosh + confetti.
+Abas Cientistas transforma a nova aba do Chrome em um painel de trabalho para quem vive entre código, GitHub, documentação, notebooks, papers, vídeos, mensageria e ferramentas de IA. Em vez de uma lista genérica de abas, a extensão tenta entender o contexto de cada página e agrupar o navegador como um workspace de pesquisa e desenvolvimento.
 
-No server. No account. No external API calls. Just a Chrome extension.
+## Autoria
 
----
+Projeto criado, adaptado e mantido por **João Victor**.
 
-## Install with a coding agent
+Este repositório nasce como uma ferramenta própria para cientistas de dados, pesquisadores, desenvolvedores de ML, analistas e builders que alternam entre código, leitura, vídeos, comunicação e experimentos.
 
-Send your coding agent (Claude Code, Codex, etc.) this repo and say **"install this"**:
+## Para Quem
 
-```
-https://github.com/zarazhangrui/tab-out
-```
+- Cientistas de dados com muitas abas abertas.
+- Pesquisadores que alternam entre papers, benchmarks e repositórios.
+- Desenvolvedores de ML que trabalham com GitHub, Colab, Kaggle, Hugging Face e documentação.
+- Builders que ficam entre deploys, dashboards, apps e ferramentas de IA.
+- Pessoas que estudam por vídeos, palestras, cursos e tutoriais.
 
-The agent will walk you through it. Takes about 1 minute.
+## O Que Ele Reconhece
 
----
+- **GitHub e versionamento**: GitHub, Gists, GitLab, issues, pull requests, commits e repositórios.
+- **Código e documentação**: Stack Overflow, MDN, docs de Python, pandas, NumPy, scikit-learn, PyTorch, TensorFlow e APIs.
+- **Aplicativos e ferramentas**: Colab, Kaggle, Hugging Face, Vercel, Notion, Figma, Databricks, Supabase, Railway e dashboards.
+- **Mensageria e coordenação**: Gmail, WhatsApp Web, Slack, Discord, Teams, Linear, Trello e tarefas.
+- **Curtos e inspiração rápida**: YouTube Shorts, Reels, TikTok e clipes.
+- **Palestras, aulas e cursos**: YouTube, Coursera, edX, Udemy, fast.ai, DataCamp, workshops e talks.
+- **YouTube e vídeos**: vídeos, playlists e páginas de watch.
+- **Papers e pesquisa**: arXiv, Google Scholar, Papers with Code, OpenReview, Semantic Scholar, NeurIPS, ICML, ICLR e benchmarks.
+- **IA e copilotos**: ChatGPT, Claude, Gemini, Perplexity, ferramentas de agentes e copilotos.
 
-## Features
+## Recursos
 
-- **See all your tabs at a glance** on a clean grid, grouped by domain
-- **Homepages group** pulls Gmail inbox, X home, YouTube, LinkedIn, GitHub homepages into one card
-- **Close tabs with style** with swoosh sound + confetti burst
-- **Duplicate detection** flags when you have the same page open twice, with one-click cleanup
-- **Click any tab to jump to it** across windows, no new tab opened
-- **Save for later** bookmark tabs to a checklist before closing them
-- **Localhost grouping** shows port numbers next to each tab so you can tell your vibe coding projects apart
-- **Expandable groups** show the first 8 tabs with a clickable "+N more"
-- **100% local** your data never leaves your machine
-- **Pure Chrome extension** no server, no Node.js, no npm, no setup beyond loading the extension
+- Agrupamento automático das abas abertas por contexto de trabalho.
+- Tema claro e escuro com preferência salva no navegador.
+- Tipografia com Manrope na interface e Fraunces nos títulos/números.
+- Fontes maiores, cantos arredondados e microanimações leves.
+- Lista **Revisar depois** para salvar links importantes antes de fechar.
+- Detecção de abas duplicadas com ação rápida para manter uma cópia.
+- Ações diretas para focar, salvar ou fechar abas.
+- Funcionamento local, sem servidor e sem conta.
 
----
+## Privacidade
 
-## Manual Setup
+O Abas Cientistas usa permissões do Chrome para ler as abas abertas e montar a visão de trabalho localmente. A lista **Revisar depois** fica em `chrome.storage.local`.
 
-**1. Clone the repo**
+Nenhum dado é enviado para servidor externo. A extensão não faz upload de abas, histórico, código, mensagens, repositórios ou páginas de pesquisa.
 
-```bash
-git clone https://github.com/zarazhangrui/tab-out.git
-```
+## Instalação Para Teste Local
 
-**2. Load the Chrome extension**
+1. Abra o Chrome em `chrome://extensions`.
+2. Ative **Developer mode**.
+3. Clique em **Load unpacked**.
+4. Selecione a pasta:
 
-1. Open Chrome and go to `chrome://extensions`
-2. Enable **Developer mode** (top-right toggle)
-3. Click **Load unpacked**
-4. Navigate to the `extension/` folder inside the cloned repo and select it
-
-**3. Open a new tab**
-
-You'll see Tab Out.
-
----
-
-## How it works
-
-```
-You open a new tab
-  -> Tab Out shows your open tabs grouped by domain
-  -> Homepages (Gmail, X, etc.) get their own group at the top
-  -> Click any tab title to jump to it
-  -> Close groups you're done with (swoosh + confetti)
-  -> Save tabs for later before closing them
+```text
+/Users/iaparamedicos/Documents/GitHub/abas-cientistas/extension
 ```
 
-Everything runs inside the Chrome extension. No external server, no API calls, no data sent anywhere. Saved tabs are stored in `chrome.storage.local`.
+5. Abra uma nova aba. A tela do **Abas Cientistas** aparecerá lendo suas abas atuais.
 
----
+Abrir `extension/index.html` diretamente no navegador não permite ler abas reais, por limitação de segurança do Chrome. Para testar de verdade, use a instalação como extensão.
 
-## Tech stack
+## Estrutura
 
-| What | How |
-|------|-----|
-| Extension | Chrome Manifest V3 |
-| Storage | chrome.storage.local |
-| Sound | Web Audio API (synthesized, no files) |
-| Animations | CSS transitions + JS confetti particles |
+```text
+extension/
+  manifest.json      Configuração da extensão Chrome
+  index.html         Estrutura visual da nova aba
+  style.css          Temas, layout e tipografia
+  app.js             Leitura das abas, agrupamento e interações
+  background.js      Badge da extensão com contagem de abas
+  icons/             Ícones da extensão
+```
 
----
+## Como Evoluir
 
-## License
+- Adicionar regras por stack: Python, R, JS/TS, ML, data engineering, MLOps.
+- Criar grupos por projeto ou cliente.
+- Separar abas de leitura, implementação, debug e deploy.
+- Detectar ambientes locais (`localhost`) por porta e framework.
+- Adicionar regras personalizadas por usuário.
+- Preparar empacotamento para publicação na Chrome Web Store.
 
-MIT
+## Publicação Como Extensão Chrome
 
----
+Sim, é possível publicar como extensão Chrome. O projeto já usa Manifest V3. Para publicação, será necessário preparar ícones finais, screenshots, política de privacidade, pacote da pasta `extension/` e submissão no Chrome Web Store Developer Dashboard.
 
-Built by [Zara](https://x.com/zarazhangrui)
+## Licença
+
+Este projeto mantém os avisos de licença aplicáveis no arquivo `LICENSE`.

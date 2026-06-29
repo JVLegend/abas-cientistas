@@ -1,32 +1,67 @@
 /* ============================================================
-   Tab Mission Control — Dashboard Styles
-   Extracted directly from mockup.html — do not modify unless
-   also updating the mockup. This is the approved design.
+   Abas Cientistas — Dashboard Styles
+   Criado e adaptado por João Victor para leitura de pesquisa e código.
    ============================================================ */
 
 :root {
-  --ink: #1a1613;
-  --paper: #f8f5f0;
-  --warm-gray: #e8e2da;
-  --muted: #9a918a;
-  --accent-amber: #c8713a;
-  --accent-sage: #5a7a62;
-  --accent-slate: #5a6b7a;
-  --accent-rose: #b35a5a;
-  --status-active: #3d7a4a;
-  --status-cooling: #b8892e;
-  --status-abandoned: #b35a5a;
-  --card-bg: #fffdf9;
-  --shadow: rgba(26, 22, 19, 0.06);
+  color-scheme: light;
+  --font-body: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --motion-fast: 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-med: 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ink: #14213d;
+  --paper: #f6fafb;
+  --warm-gray: #d8e4e8;
+  --muted: #667985;
+  --subtle-line: rgba(102, 121, 133, 0.16);
+  --soft-hover: rgba(31, 138, 112, 0.08);
+  --accent-amber-soft: rgba(196, 122, 44, 0.1);
+  --accent-sage-soft: rgba(31, 138, 112, 0.1);
+  --danger-soft: rgba(185, 74, 72, 0.1);
+  --accent-amber: #c47a2c;
+  --accent-sage: #1f8a70;
+  --accent-slate: #31546b;
+  --accent-rose: #b94a48;
+  --status-active: #0f766e;
+  --status-cooling: #b7791f;
+  --status-abandoned: #b94a48;
+  --card-bg: #ffffff;
+  --shadow: rgba(20, 33, 61, 0.08);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #edf7f7;
+  --paper: #111820;
+  --warm-gray: #2f4652;
+  --muted: #9eb1ba;
+  --subtle-line: rgba(158, 177, 186, 0.18);
+  --soft-hover: rgba(69, 196, 170, 0.12);
+  --accent-amber-soft: rgba(230, 167, 88, 0.14);
+  --accent-sage-soft: rgba(69, 196, 170, 0.14);
+  --danger-soft: rgba(241, 127, 124, 0.14);
+  --accent-amber: #e6a758;
+  --accent-sage: #45c4aa;
+  --accent-slate: #83a9bc;
+  --accent-rose: #f17f7c;
+  --status-active: #45c4aa;
+  --status-cooling: #e6a758;
+  --status-abandoned: #f17f7c;
+  --card-bg: #182530;
+  --shadow: rgba(0, 0, 0, 0.28);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-body);
   background: var(--paper);
   color: var(--ink);
   min-height: 100vh;
+  font-size: 16px;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -59,33 +94,77 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 24px;
   margin-bottom: 48px;
   padding-bottom: 24px;
   border-bottom: 1px solid var(--warm-gray);
 }
 
 .header-left h1 {
-  font-family: 'Newsreader', serif;
-  font-weight: 300;
-  font-size: 28px;
-  letter-spacing: -0.5px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 34px;
+  letter-spacing: 0;
   color: var(--ink);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .header-left .date {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--muted);
   font-weight: 400;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--warm-gray);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  box-shadow: 0 4px 18px var(--shadow);
+}
+
+.theme-option {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  min-height: 34px;
+  padding: 7px 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast), transform var(--motion-fast);
+}
+
+.theme-option svg {
+  width: 17px;
+  height: 17px;
+}
+
+.theme-option[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--accent-sage-soft);
+  box-shadow: inset 0 0 0 1px rgba(31, 138, 112, 0.18);
+}
+
+.theme-option:hover {
+  transform: translateY(-1px);
 }
 
 /* ---- Tab cleanup banner ---- */
 .tab-cleanup-banner {
-  background: linear-gradient(135deg, rgba(200, 113, 58, 0.04), rgba(200, 113, 58, 0.09));
-  border: 1px solid rgba(200, 113, 58, 0.18);
-  border-radius: 8px;
+  background: var(--accent-amber-soft);
+  border: 1px solid rgba(196, 122, 44, 0.22);
+  border-radius: var(--radius-lg);
   padding: 16px 24px;
   display: flex;
   align-items: center;
@@ -117,7 +196,7 @@ header {
 }
 
 .tab-cleanup-text {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink);
   line-height: 1.5;
 }
@@ -127,16 +206,16 @@ header {
 }
 
 .tab-cleanup-btn {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
+  font-family: var(--font-body);
+  font-size: 14px;
   font-weight: 600;
   padding: 8px 20px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   border: none;
   background: var(--accent-amber);
   color: white;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: opacity var(--motion-fast), transform var(--motion-fast), background var(--motion-fast);
   white-space: nowrap;
 }
 
@@ -149,7 +228,7 @@ header {
 .nudge-banner {
   background: linear-gradient(135deg, rgba(179, 90, 90, 0.04), rgba(179, 90, 90, 0.08));
   border: 1px solid rgba(179, 90, 90, 0.15);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 16px 24px;
   display: flex;
   align-items: center;
@@ -175,7 +254,7 @@ header {
 }
 
 .nudge-text {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink);
   line-height: 1.5;
 }
@@ -194,9 +273,9 @@ header {
 }
 
 .section-header h2 {
-  font-family: 'Newsreader', serif;
+  font-family: var(--font-display);
   font-weight: 400;
-  font-size: 18px;
+  font-size: 23px;
   font-style: italic;
   color: var(--muted);
   white-space: nowrap;
@@ -209,34 +288,34 @@ header {
 }
 
 .section-count {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   font-weight: 500;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
 /* ---- Mission Cards ---- */
 .missions {
-  columns: 280px;
-  column-gap: 12px;
+  columns: 330px;
+  column-gap: 14px;
   margin-bottom: 40px;
 }
 
 .mission-card {
   background: var(--card-bg);
   border: 1px solid var(--warm-gray);
-  border-radius: 8px;
-  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  padding: 19px 20px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: box-shadow 0.25s ease, transform 0.25s ease;
+  transition: box-shadow var(--motion-med), transform var(--motion-med), border-color var(--motion-med), background var(--motion-med);
   cursor: pointer;
   position: relative;
   overflow: hidden;
   break-inside: avoid;       /* don't split a card across columns */
-  margin-bottom: 12px;       /* vertical spacing (replaces grid gap) */
+  margin-bottom: 14px;       /* vertical spacing (replaces grid gap) */
 }
 
 /* Colored top border instead of side bar for grid cards */
@@ -250,13 +329,32 @@ header {
   background: var(--warm-gray);
 }
 
+.mission-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.72), transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: left 520ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity var(--motion-fast);
+}
+
 .mission-card.has-active-bar::before { background: var(--status-active); }
 .mission-card.has-amber-bar::before { background: var(--accent-amber); }
 .mission-card.has-neutral-bar::before { background: var(--warm-gray); }
 
 .mission-card:hover {
-  box-shadow: 0 4px 20px var(--shadow);
-  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent-sage) 32%, var(--warm-gray));
+  box-shadow: 0 12px 34px var(--shadow);
+  transform: translateY(-4px);
+}
+
+.mission-card:hover::after {
+  left: 100%;
+  opacity: 0.45;
 }
 
 /* Closing animation — card scales down and fades out */
@@ -295,18 +393,24 @@ header {
 
 .mission-name {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 18px;
   color: var(--ink);
-  letter-spacing: -0.2px;
+  letter-spacing: 0;
+  transition: color var(--motion-fast), transform var(--motion-fast);
+}
+
+.mission-card:hover .mission-name {
+  color: var(--accent-sage);
+  transform: translateX(2px);
 }
 
 .mission-tag {
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0;
   font-weight: 600;
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
 
 .mission-tag.active {
@@ -329,21 +433,26 @@ header {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--accent-amber);
   background: rgba(200, 113, 58, 0.08);
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
+  transition: transform var(--motion-fast), background var(--motion-fast);
+}
+
+.mission-card:hover .open-tabs-badge {
+  transform: translateY(-1px);
 }
 
 .open-tabs-badge svg {
-  width: 10px;
-  height: 10px;
+  width: 13px;
+  height: 13px;
 }
 
 .mission-summary {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--muted);
   line-height: 1.5;
   margin-bottom: 8px;
@@ -357,18 +466,19 @@ header {
 
 /* ---- Tab row — each tab is a full-width row with favicon, title, and actions ---- */
 .page-chip {
-  font-size: 13px;
+  font-size: 16px;
   color: var(--ink);
   background: transparent;
-  padding: 8px 4px;
-  border-radius: 0;
+  padding: 10px 4px;
+  border-radius: var(--radius-md);
   border: none;
-  border-bottom: 1px solid rgba(154, 145, 138, 0.1);
+  border-bottom: 1px solid var(--subtle-line);
   position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
   line-height: 1.4;
+  transition: background var(--motion-fast), transform var(--motion-fast), padding-left var(--motion-fast);
 }
 
 .page-chip:last-child,
@@ -378,10 +488,11 @@ header {
 
 /* Favicon */
 .chip-favicon {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
-  border-radius: 2px;
+  border-radius: 5px;
+  transition: transform var(--motion-fast), filter var(--motion-fast);
 }
 
 /* Title text — wraps naturally, no truncation */
@@ -413,6 +524,8 @@ header {
   gap: 2px;
   flex-shrink: 0;
   margin-left: auto;
+  transform: translateX(3px);
+  transition: opacity var(--motion-fast), transform var(--motion-fast);
 }
 
 /* ---- Chip action buttons (save + close) ---- */
@@ -424,45 +537,56 @@ header {
   border: none;
   color: var(--muted);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
   opacity: 0.35;
-  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  transition: opacity var(--motion-fast), color var(--motion-fast), background var(--motion-fast), transform var(--motion-fast);
   flex-shrink: 0;
 }
 
 .chip-action svg {
-  width: 15px;
-  height: 15px;
+  width: 18px;
+  height: 18px;
 }
 
 .chip-action:hover {
   opacity: 1;
-  background: rgba(154, 145, 138, 0.1);
+  background: var(--soft-hover);
+  transform: translateY(-1px);
 }
 
 .chip-save:hover {
   color: var(--accent-sage);
-  background: rgba(90, 122, 98, 0.08);
+  background: var(--accent-sage-soft);
 }
 
 .chip-close:hover {
   color: var(--status-abandoned);
-  background: rgba(179, 90, 90, 0.08);
+  background: var(--danger-soft);
 }
 
 .page-chip.clickable {
   cursor: pointer;
-  transition: background 0.15s ease;
 }
 
 .page-chip.clickable:hover {
-  background: rgba(200, 113, 58, 0.04);
+  background: var(--soft-hover);
+  transform: translateX(3px);
+  padding-left: 8px;
+}
+
+.page-chip.clickable:hover .chip-favicon {
+  transform: scale(1.08);
+}
+
+.page-chip.clickable:hover .chip-actions {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 /* "+N more" overflow chip */
 .page-chip-overflow {
-  font-size: 12px;
+  font-size: 15px;
   color: var(--muted);
   padding: 6px 4px;
 }
@@ -470,24 +594,24 @@ header {
 /* mission-meta hidden — see above */
 
 .mission-time {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   margin-bottom: 4px;
 }
 
 .mission-page-count {
-  font-size: 20px;
-  font-family: 'Newsreader', serif;
+  font-size: 24px;
+  font-family: var(--font-display);
   font-weight: 300;
   color: var(--ink);
   line-height: 1;
 }
 
 .mission-page-label {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0;
 }
 
 /* ---- Actions row ---- */
@@ -498,16 +622,16 @@ header {
 }
 
 .action-btn {
-  font-size: 11px;
-  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-family: var(--font-body);
   font-weight: 500;
-  padding: 5px 14px;
-  border-radius: 4px;
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--warm-gray);
   background: var(--card-bg);
   color: var(--muted);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion-fast);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -516,11 +640,12 @@ header {
 .action-btn:hover {
   border-color: var(--ink);
   color: var(--ink);
+  transform: translateY(-1px);
 }
 
 .action-btn svg {
-  width: 12px;
-  height: 12px;
+  width: 15px;
+  height: 15px;
 }
 
 .action-btn.primary {
@@ -534,24 +659,24 @@ header {
 }
 
 .action-btn.close-tabs {
-  border-color: rgba(200, 113, 58, 0.3);
+  border-color: rgba(196, 122, 44, 0.36);
   color: var(--accent-amber);
-  background: rgba(200, 113, 58, 0.04);
+  background: var(--accent-amber-soft);
 }
 
 .action-btn.close-tabs:hover {
-  background: rgba(200, 113, 58, 0.1);
+  background: var(--accent-amber-soft);
   border-color: var(--accent-amber);
 }
 
 .action-btn.save-tabs {
-  border-color: rgba(90, 122, 98, 0.3);
+  border-color: rgba(31, 138, 112, 0.32);
   color: var(--accent-sage);
-  background: rgba(90, 122, 98, 0.04);
+  background: var(--accent-sage-soft);
 }
 
 .action-btn.save-tabs:hover {
-  background: rgba(90, 122, 98, 0.1);
+  background: var(--accent-sage-soft);
   border-color: var(--accent-sage);
 }
 
@@ -572,15 +697,15 @@ header {
   transform: translateX(-50%) translateY(80px);
   background: var(--ink);
   color: var(--paper);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
+  font-family: var(--font-body);
+  font-size: 15px;
   font-weight: 500;
   padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   z-index: 100;
   opacity: 0;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
   display: flex;
   align-items: center;
@@ -593,8 +718,8 @@ header {
 }
 
 .toast svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   color: var(--status-active);
 }
 
@@ -618,8 +743,8 @@ footer {
 }
 
 .stat-num {
-  font-family: 'Newsreader', serif;
-  font-size: 28px;
+  font-family: var(--font-display);
+  font-size: 34px;
   font-weight: 300;
   color: var(--ink);
   line-height: 1;
@@ -627,21 +752,21 @@ footer {
 }
 
 .stat-label {
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 0;
   color: var(--muted);
   margin-top: 4px;
 }
 
 .last-refresh {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
 }
 
 .refresh-btn {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 11px;
+  font-family: var(--font-body);
+  font-size: 13px;
   font-weight: 500;
   color: var(--accent-amber);
   background: none;
@@ -691,7 +816,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 /* ---- "Domain" tag on static domain cards ---- */
 .mission-tag.neutral {
   color: var(--muted);
-  background: rgba(154, 145, 138, 0.1);
+  background: var(--soft-hover);
 }
 
 /* ================================================================
@@ -749,19 +874,19 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .empty-title {
-  font-family: 'Newsreader', serif;
-  font-size: 20px;
+  font-family: var(--font-display);
+  font-size: 24px;
   font-weight: 400;
   font-style: italic;
   color: var(--ink);
-  letter-spacing: -0.3px;
+  letter-spacing: 0;
 }
 
 .empty-subtitle {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--muted);
   font-weight: 400;
-  letter-spacing: 0.3px;
+  letter-spacing: 0;
 }
 
 
@@ -783,7 +908,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   /* Sage green tint — matches accent-sage but very light */
   background: linear-gradient(135deg, rgba(90, 122, 98, 0.05), rgba(90, 122, 98, 0.10));
   border: 1px solid rgba(90, 122, 98, 0.22);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 10px 16px;
 
   /* Push the header down slightly */
@@ -816,7 +941,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .update-banner-text {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink);
   font-weight: 400;
   line-height: 1.4;
@@ -833,16 +958,16 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 
 /* "Update now" button — small, filled, sage green */
 .update-banner-btn {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
+  font-family: var(--font-body);
+  font-size: 14px;
   font-weight: 500;
   color: #fff;
   background: var(--accent-sage);
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   padding: 5px 12px;
   cursor: pointer;
-  letter-spacing: 0.2px;
+  letter-spacing: 0;
   transition: background 0.2s, opacity 0.2s;
   white-space: nowrap;
 }
@@ -866,7 +991,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   border: none;
   background: transparent;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   transition: background 0.15s, color 0.15s;
   padding: 0;
@@ -874,7 +999,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .update-banner-dismiss:hover {
-  background: rgba(26, 22, 19, 0.06);
+  background: var(--soft-hover);
   color: var(--ink);
 }
 
@@ -898,12 +1023,12 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 /* Open tabs column keeps the grid layout */
 .dashboard-columns .active-section {
   flex: 1;
-  min-width: 600px;
+  min-width: 640px;
 }
 
 /* Saved for later column — fixed width on the right, scrolls independently */
 .deferred-column {
-  width: 280px;
+  width: 330px;
   flex-shrink: 0;
   position: sticky;
   top: 32px;
@@ -913,8 +1038,19 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 
 /* On narrow screens, stack vertically */
 @media (max-width: 800px) {
+  header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .header-actions {
+    align-self: flex-start;
+  }
   .dashboard-columns {
     flex-direction: column;
+  }
+  .dashboard-columns .active-section {
+    min-width: 0;
+    width: 100%;
   }
   .deferred-column {
     width: 100%;
@@ -928,7 +1064,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   align-items: flex-start;
   gap: 10px;
   padding: 10px 0;
-  border-bottom: 1px solid rgba(154, 145, 138, 0.12);
+  border-bottom: 1px solid var(--subtle-line);
   animation: fadeUp 0.3s ease both;
 }
 
@@ -943,7 +1079,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   width: 18px;
   height: 18px;
   border: 2px solid var(--warm-gray);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   flex-shrink: 0;
   margin-top: 1px;
@@ -980,7 +1116,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .deferred-title {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink);
   text-decoration: none;
   display: block;
@@ -995,7 +1131,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .deferred-meta {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   margin-top: 2px;
   display: flex;
@@ -1018,7 +1154,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   border: none;
   color: var(--muted);
   cursor: pointer;
-  padding: 2px;
+  padding: 4px;
   opacity: 0.3;
   transition: opacity 0.15s, color 0.15s;
   flex-shrink: 0;
@@ -1026,8 +1162,8 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .deferred-dismiss svg {
-  width: 14px;
-  height: 14px;
+  width: 17px;
+  height: 17px;
 }
 
 .deferred-dismiss:hover {
@@ -1044,7 +1180,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 
 /* ---- Empty state ---- */
 .deferred-empty {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--muted);
   font-style: italic;
   padding: 24px 0;
@@ -1059,8 +1195,8 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .archive-toggle {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
+  font-family: var(--font-body);
+  font-size: 15px;
   font-weight: 500;
   color: var(--muted);
   background: none;
@@ -1080,8 +1216,8 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .archive-chevron {
-  width: 14px;
-  height: 14px;
+  width: 17px;
+  height: 17px;
   transition: transform 0.2s;
 }
 
@@ -1090,7 +1226,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .archive-count {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   opacity: 0.7;
 }
@@ -1100,12 +1236,12 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .archive-search {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
+  font-family: var(--font-body);
+  font-size: 15px;
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--warm-gray);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--card-bg);
   color: var(--ink);
   outline: none;
@@ -1127,7 +1263,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   align-items: center;
   gap: 8px;
   padding: 6px 0;
-  border-bottom: 1px solid rgba(154, 145, 138, 0.08);
+  border-bottom: 1px solid var(--subtle-line);
 }
 
 .archive-item:last-child {
@@ -1135,7 +1271,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .archive-item-title {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   text-decoration: none;
   overflow: hidden;
@@ -1151,8 +1287,19 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .archive-item-date {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
   opacity: 0.6;
   flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

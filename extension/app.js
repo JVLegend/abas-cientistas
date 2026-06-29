@@ -1,5 +1,6 @@
 /* ================================================================
-   Tab Out — Dashboard App (Pure Extension Edition)
+   Abas Cientistas — Dashboard App (Pure Extension Edition)
+   Criado e adaptado por João Victor para fluxo de trabalho cientista de dados.
 
    This file is the brain of the dashboard. Now that the dashboard
    IS the extension page (not inside an iframe), it can call
@@ -25,15 +26,28 @@
 
 // All open tabs — populated by fetchOpenTabs()
 let openTabs = [];
+let canReadChromeTabs = true;
 
 /**
  * fetchOpenTabs()
  *
  * Reads all currently open browser tabs directly from Chrome.
- * Sets the extensionId flag so we can identify Tab Out's own pages.
+ * Sets the extensionId flag so we can identify Abas Cientistas' own pages.
  */
 async function fetchOpenTabs() {
   try {
+    if (
+      typeof chrome === 'undefined' ||
+      !chrome.runtime ||
+      !chrome.tabs ||
+      typeof chrome.tabs.query !== 'function'
+    ) {
+      canReadChromeTabs = false;
+      openTabs = [];
+      return;
+    }
+
+    canReadChromeTabs = true;
     const extensionId = chrome.runtime.id;
     // The new URL for this page is now index.html (not newtab.html)
     const newtabUrl = `chrome-extension://${extensionId}/index.html`;
@@ -45,11 +59,11 @@ async function fetchOpenTabs() {
       title:    t.title,
       windowId: t.windowId,
       active:   t.active,
-      // Flag Tab Out's own pages so we can detect duplicate new tabs
+      // Flag Abas Cientistas' own pages so we can detect duplicate new tabs
       isTabOut: t.url === newtabUrl || t.url === 'chrome://newtab/',
     }));
   } catch {
-    // chrome.tabs API unavailable (shouldn't happen in an extension page)
+    canReadChromeTabs = false;
     openTabs = [];
   }
 }
@@ -172,7 +186,7 @@ async function closeDuplicateTabs(urls, keepOne = true) {
 /**
  * closeTabOutDupes()
  *
- * Closes all duplicate Tab Out new-tab pages except the current one.
+ * Closes all duplicate Abas Cientistas new-tab pages except the current one.
  */
 async function closeTabOutDupes() {
   const extensionId = chrome.runtime.id;
@@ -186,7 +200,7 @@ async function closeTabOutDupes() {
 
   if (tabOutTabs.length <= 1) return;
 
-  // Keep the active Tab Out tab in the CURRENT window — that's the one the
+  // Keep the active Abas Cientistas tab in the CURRENT window — that's the one the
   // user is looking at right now. Falls back to any active one, then the first.
   const keep =
     tabOutTabs.find(t => t.active && t.windowId === currentWindow.id) ||
@@ -442,6 +456,21 @@ function showToast(message) {
   setTimeout(() => toast.classList.remove('visible'), 2500);
 }
 
+function applyTheme(theme) {
+  const nextTheme = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = nextTheme;
+  localStorage.setItem('abas-cientistas-theme', nextTheme);
+
+  document.querySelectorAll('[data-action="set-theme"]').forEach(button => {
+    const isActive = button.dataset.themeValue === nextTheme;
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+}
+
+function initTheme() {
+  applyTheme(localStorage.getItem('abas-cientistas-theme') || 'light');
+}
+
 /**
  * checkAndShowEmptyState()
  *
@@ -461,20 +490,46 @@ function checkAndShowEmptyState() {
           <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
         </svg>
       </div>
-      <div class="empty-title">Inbox zero, but for tabs.</div>
-      <div class="empty-subtitle">You're free.</div>
+      <div class="empty-title">Fila limpa.</div>
+      <div class="empty-subtitle">Nenhuma aba de projeto, código ou pesquisa pendente por agora.</div>
     </div>
   `;
 
   const countEl = document.getElementById('openTabsSectionCount');
-  if (countEl) countEl.textContent = '0 domains';
+  if (countEl) countEl.textContent = '0 grupos';
+}
+
+function renderExtensionOnlyState() {
+  const openTabsSection      = document.getElementById('openTabsSection');
+  const openTabsMissionsEl   = document.getElementById('openTabsMissions');
+  const openTabsSectionCount = document.getElementById('openTabsSectionCount');
+  const openTabsSectionTitle = document.getElementById('openTabsSectionTitle');
+
+  if (!openTabsSection || !openTabsMissionsEl) return;
+
+  if (openTabsSectionTitle) openTabsSectionTitle.textContent = 'Instale como extensão';
+  if (openTabsSectionCount) openTabsSectionCount.textContent = '0 abas lidas';
+  openTabsMissionsEl.innerHTML = `
+    <div class="missions-empty-state">
+      <div class="empty-checkmark">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25 6.75 6.75m0 0v4.5m0-4.5h4.5m1.5 6 4.5 4.5m0 0v-4.5m0 4.5h-4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      </div>
+      <div class="empty-title">Esta página foi aberta como arquivo.</div>
+      <div class="empty-subtitle">
+        Para ler suas abas reais, carregue a pasta <strong>extension</strong> em <strong>chrome://extensions</strong> e recarregue a extensão Abas Cientistas.
+      </div>
+    </div>
+  `;
+  openTabsSection.style.display = 'block';
 }
 
 /**
  * timeAgo(dateStr)
  *
  * Converts an ISO date string into a human-friendly relative time.
- * "2026-04-04T10:00:00Z" → "2 hrs ago" or "yesterday"
+ * "2026-04-04T10:00:00Z" → "há 2 h" or "ontem"
  */
 function timeAgo(dateStr) {
   if (!dateStr) return '';
@@ -484,28 +539,28 @@ function timeAgo(dateStr) {
   const diffHours = Math.floor((now - then) / 3600000);
   const diffDays  = Math.floor((now - then) / 86400000);
 
-  if (diffMins < 1)   return 'just now';
-  if (diffMins < 60)  return diffMins + ' min ago';
-  if (diffHours < 24) return diffHours + ' hr' + (diffHours !== 1 ? 's' : '') + ' ago';
-  if (diffDays === 1) return 'yesterday';
-  return diffDays + ' days ago';
+  if (diffMins < 1)   return 'agora';
+  if (diffMins < 60)  return 'há ' + diffMins + ' min';
+  if (diffHours < 24) return 'há ' + diffHours + ' h';
+  if (diffDays === 1) return 'ontem';
+  return 'há ' + diffDays + ' dias';
 }
 
 /**
- * getGreeting() — "Good morning / afternoon / evening"
+ * getGreeting() — "Bom dia / Boa tarde / Boa noite"
  */
 function getGreeting() {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 12) return 'Bom dia, cientista';
+  if (hour < 17) return 'Boa tarde, cientista';
+  return 'Boa noite, cientista';
 }
 
 /**
- * getDateDisplay() — "Friday, April 4, 2026"
+ * getDateDisplay() — "sexta-feira, 4 de abril de 2026"
  */
 function getDateDisplay() {
-  return new Date().toLocaleDateString('en-US', {
+  return new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
     year:    'numeric',
     month:   'long',
@@ -579,13 +634,29 @@ const FRIENDLY_DOMAINS = {
   'developer.mozilla.org':'MDN',
   'arxiv.org':            'arXiv',
   'www.arxiv.org':        'arXiv',
+  'scholar.google.com':    'Google Scholar',
+  'colab.research.google.com':'Google Colab',
+  'kaggle.com':           'Kaggle',
+  'www.kaggle.com':       'Kaggle',
+  'paperswithcode.com':   'Papers with Code',
+  'openreview.net':       'OpenReview',
+  'www.semanticscholar.org':'Semantic Scholar',
+  'semantic-scholar.org': 'Semantic Scholar',
+  'observablehq.com':     'Observable',
+  'www.observablehq.com': 'Observable',
+  'databricks.com':       'Databricks',
+  'www.databricks.com':   'Databricks',
+  'supabase.com':         'Supabase',
+  'www.supabase.com':     'Supabase',
+  'railway.app':          'Railway',
+  'www.railway.app':      'Railway',
   'huggingface.co':       'Hugging Face',
   'www.huggingface.co':   'Hugging Face',
   'producthunt.com':      'Product Hunt',
   'www.producthunt.com':  'Product Hunt',
   'xiaohongshu.com':      'RedNote',
   'www.xiaohongshu.com':  'RedNote',
-  'local-files':          'Local Files',
+  'local-files':          'Arquivos locais',
 };
 
 function friendlyDomain(hostname) {
@@ -735,7 +806,7 @@ function getRealTabs() {
 /**
  * checkTabOutDupes()
  *
- * Counts how many Tab Out pages are open. If more than 1,
+ * Counts how many Abas Cientistas pages are open. If more than 1,
  * shows a banner offering to close the extras.
  */
 function checkTabOutDupes() {
@@ -772,10 +843,10 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}) {
       ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
       <span class="chip-text">${label}</span>${dupeTag}
       <div class="chip-actions">
-        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Save for later">
+        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Revisar depois">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
         </button>
-        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-url="${safeUrl}" title="Close this tab">
+        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-url="${safeUrl}" title="Fechar esta aba">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
       </div>
@@ -785,7 +856,7 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}) {
   return `
     <div class="page-chips-overflow" style="display:none">${hiddenChips}</div>
     <div class="page-chip page-chip-overflow clickable" data-action="expand-chips">
-      <span class="chip-text">+${hiddenTabs.length} more</span>
+      <span class="chip-text">+${hiddenTabs.length} mais</span>
     </div>`;
 }
 
@@ -813,14 +884,15 @@ function renderDomainCard(group) {
   const hasDupes   = dupeUrls.length > 0;
   const totalExtras = dupeUrls.reduce((s, [, c]) => s + c - 1, 0);
 
+  const tabLabel = tabCount === 1 ? 'aba aberta' : 'abas abertas';
   const tabBadge = `<span class="open-tabs-badge">
     ${ICONS.tabs}
-    ${tabCount} tab${tabCount !== 1 ? 's' : ''} open
+    ${tabCount} ${tabLabel}
   </span>`;
 
   const dupeBadge = hasDupes
     ? `<span class="open-tabs-badge" style="color:var(--accent-amber);background:rgba(200,113,58,0.08);">
-        ${totalExtras} duplicate${totalExtras !== 1 ? 's' : ''}
+        ${totalExtras} duplicada${totalExtras !== 1 ? 's' : ''}
       </span>`
     : '';
 
@@ -853,10 +925,10 @@ function renderDomainCard(group) {
       ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
       <span class="chip-text">${label}</span>${dupeTag}
       <div class="chip-actions">
-        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Save for later">
+        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Revisar depois">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
         </button>
-        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-url="${safeUrl}" title="Close this tab">
+        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-url="${safeUrl}" title="Fechar esta aba">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
       </div>
@@ -866,14 +938,14 @@ function renderDomainCard(group) {
   let actionsHtml = `
     <button class="action-btn close-tabs" data-action="close-domain-tabs" data-domain-id="${stableId}">
       ${ICONS.close}
-      Close all ${tabCount} tab${tabCount !== 1 ? 's' : ''}
+      Fechar ${tabCount === 1 ? 'esta aba' : `as ${tabCount} abas`}
     </button>`;
 
   if (hasDupes) {
     const dupeUrlsEncoded = dupeUrls.map(([url]) => encodeURIComponent(url)).join(',');
     actionsHtml += `
       <button class="action-btn" data-action="dedup-keep-one" data-dupe-urls="${dupeUrlsEncoded}">
-        Close ${totalExtras} duplicate${totalExtras !== 1 ? 's' : ''}
+        Fechar ${totalExtras} duplicada${totalExtras !== 1 ? 's' : ''}
       </button>`;
   }
 
@@ -882,7 +954,7 @@ function renderDomainCard(group) {
       <div class="status-bar"></div>
       <div class="mission-content">
         <div class="mission-top">
-          <span class="mission-name">${isLanding ? 'Homepages' : (group.label || friendlyDomain(group.domain))}</span>
+          <span class="mission-name">${isLanding ? 'Portais de entrada' : (group.label || friendlyDomain(group.domain))}</span>
           ${tabBadge}
           ${dupeBadge}
         </div>
@@ -891,7 +963,7 @@ function renderDomainCard(group) {
       </div>
       <div class="mission-meta">
         <div class="mission-page-count">${tabCount}</div>
-        <div class="mission-page-label">tabs</div>
+        <div class="mission-page-label">abas</div>
       </div>
     </div>`;
 }
@@ -952,7 +1024,7 @@ async function renderDeferredColumn() {
     }
 
   } catch (err) {
-    console.warn('[tab-out] Could not load saved tabs:', err);
+    console.warn('[abas-cientistas] Não foi possível carregar itens salvos:', err);
     column.style.display = 'none';
   }
 }
@@ -981,7 +1053,7 @@ function renderDeferredItem(item) {
           <span>${ago}</span>
         </div>
       </div>
-      <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${item.id}" title="Dismiss">
+      <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${item.id}" title="Remover">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
       </button>
     </div>`;
@@ -1001,6 +1073,108 @@ function renderArchiveItem(item) {
       </a>
       <span class="archive-item-date">${ago}</span>
     </div>`;
+}
+
+/* ----------------------------------------------------------------
+   DATA SCIENCE GROUPING — opinionated defaults for research/coding work
+   ---------------------------------------------------------------- */
+
+const DATA_SCIENCE_GROUPS = [
+  {
+    groupKey: 'ds-github',
+    groupLabel: 'GitHub e versionamento',
+    hostnames: ['github.com', 'gist.github.com', 'github.dev'],
+    hostIncludes: ['githubusercontent', 'gitlab', 'bitbucket'],
+    keywords: ['pull request', 'issue', 'commit', 'branch', 'repository', 'repo', 'gist'],
+  },
+  {
+    groupKey: 'ds-code',
+    groupLabel: 'Código e documentação',
+    hostnames: ['stackoverflow.com', 'developer.mozilla.org', 'docs.python.org', 'pandas.pydata.org', 'numpy.org', 'scikit-learn.org', 'pytorch.org', 'tensorflow.org'],
+    hostIncludes: ['readthedocs', 'docs.', 'api.', 'reference', 'storybook'],
+    keywords: ['documentation', 'docs', 'api reference', 'sdk', 'typescript', 'python', 'notebook', 'colab', 'jupyter'],
+  },
+  {
+    groupKey: 'ds-apps',
+    groupLabel: 'Aplicativos e ferramentas',
+    hostnames: ['colab.research.google.com', 'kaggle.com', 'www.kaggle.com', 'huggingface.co', 'vercel.com', 'notion.so', 'www.notion.so', 'figma.com', 'www.figma.com'],
+    hostIncludes: ['databricks', 'snowflake', 'supabase', 'railway', 'replit', 'codesandbox', 'observablehq', 'lookerstudio', 'metabase'],
+    keywords: ['dashboard', 'workspace', 'project', 'app', 'deploy', 'dataset', 'model card', 'space'],
+  },
+  {
+    groupKey: 'ds-messaging',
+    groupLabel: 'Mensageria e coordenação',
+    hostnames: ['mail.google.com', 'web.whatsapp.com', 'app.slack.com', 'discord.com', 'teams.microsoft.com', 'chat.google.com', 'telegram.org'],
+    hostIncludes: ['slack', 'whatsapp', 'discord', 'telegram', 'teams', 'linear', 'trello', 'asana'],
+    keywords: ['inbox', 'dm', 'mensagem', 'mensageria', 'chat', 'thread', 'kanban', 'task'],
+  },
+  {
+    groupKey: 'ds-shorts',
+    groupLabel: 'Curtos e inspiração rápida',
+    hostnames: ['www.youtube.com', 'youtube.com', 'm.youtube.com', 'www.tiktok.com', 'www.instagram.com'],
+    pathIncludes: ['/shorts/', '/reels/', '/reel/'],
+    keywords: ['shorts', 'reels', 'tiktok', 'clip', 'short'],
+  },
+  {
+    groupKey: 'ds-talks',
+    groupLabel: 'Palestras, aulas e cursos',
+    hostnames: ['www.youtube.com', 'youtube.com', 'm.youtube.com', 'coursera.org', 'www.coursera.org', 'edx.org', 'www.edx.org', 'udemy.com', 'www.udemy.com'],
+    hostIncludes: ['deeplearning.ai', 'fast.ai', 'datacamp', 'pluralsight'],
+    keywords: ['lecture', 'talk', 'keynote', 'palestra', 'aula', 'curso', 'course', 'tutorial', 'workshop', 'conference'],
+  },
+  {
+    groupKey: 'ds-youtube',
+    groupLabel: 'YouTube e vídeos',
+    hostnames: ['www.youtube.com', 'youtube.com', 'm.youtube.com', 'youtu.be'],
+    keywords: ['youtube', 'watch', 'playlist', 'video'],
+  },
+  {
+    groupKey: 'ds-papers',
+    groupLabel: 'Papers e pesquisa',
+    hostnames: ['arxiv.org', 'scholar.google.com', 'paperswithcode.com', 'openreview.net', 'semantic-scholar.org', 'www.semanticscholar.org'],
+    hostIncludes: ['nature', 'science.org', 'acm.org', 'ieee', 'springer', 'elsevier', 'jmlr', 'neurips', 'icml', 'iclr'],
+    keywords: ['paper', 'preprint', 'article', 'arxiv', 'benchmark', 'state of the art', 'sota', 'dataset', 'ablation'],
+  },
+  {
+    groupKey: 'ds-ai',
+    groupLabel: 'IA e copilotos',
+    hostnames: ['chatgpt.com', 'www.chatgpt.com', 'chat.openai.com', 'claude.ai', 'www.claude.ai', 'gemini.google.com', 'perplexity.ai'],
+    hostIncludes: ['openai', 'anthropic', 'cursor', 'v0.dev'],
+    keywords: ['prompt', 'assistant', 'copilot', 'agent', 'llm', 'chat'],
+  },
+];
+
+function normalizeForMatch(value) {
+  return (value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function matchDataScienceGroup(tab) {
+  if (!tab || !tab.url) return null;
+
+  let parsed;
+  try { parsed = new URL(tab.url); }
+  catch { return null; }
+
+  const hostname = normalizeForMatch(parsed.hostname);
+  const pathname = normalizeForMatch(parsed.pathname);
+  const haystack = normalizeForMatch(`${parsed.hostname} ${parsed.pathname} ${tab.title || ''}`);
+
+  return DATA_SCIENCE_GROUPS.find(group => {
+    const hostnames = (group.hostnames || []).map(normalizeForMatch);
+    const hostIncludes = (group.hostIncludes || []).map(normalizeForMatch);
+    const pathIncludes = (group.pathIncludes || []).map(normalizeForMatch);
+    const keywords = (group.keywords || []).map(normalizeForMatch);
+
+    return (
+      hostnames.includes(hostname) ||
+      hostIncludes.some(part => hostname.includes(part)) ||
+      pathIncludes.some(part => pathname.includes(part)) ||
+      keywords.some(word => haystack.includes(word))
+    );
+  }) || null;
 }
 
 
@@ -1030,17 +1204,18 @@ async function renderStaticDashboard() {
   await fetchOpenTabs();
   const realTabs = getRealTabs();
 
+  if (!canReadChromeTabs) {
+    renderExtensionOnlyState();
+    const statTabs = document.getElementById('statTabs');
+    if (statTabs) statTabs.textContent = '—';
+    await renderDeferredColumn();
+    return;
+  }
+
   // --- Group tabs by domain ---
-  // Landing pages (Gmail inbox, Twitter home, etc.) get their own special group
-  // so they can be closed together without affecting content tabs on the same domain.
+  // Optional landing page rules from config.local.js can still be merged in,
+  // but defaults stay focused on data-science workflow categories.
   const LANDING_PAGE_PATTERNS = [
-    { hostname: 'mail.google.com', test: (p, h) =>
-        !h.includes('#inbox/') && !h.includes('#sent/') && !h.includes('#search/') },
-    { hostname: 'x.com',               pathExact: ['/home'] },
-    { hostname: 'www.linkedin.com',    pathExact: ['/'] },
-    { hostname: 'github.com',          pathExact: ['/'] },
-    { hostname: 'www.youtube.com',     pathExact: ['/'] },
-    // Merge personal patterns from config.local.js (if it exists)
     ...(typeof LOCAL_LANDING_PAGE_PATTERNS !== 'undefined' ? LOCAL_LANDING_PAGE_PATTERNS : []),
   ];
 
@@ -1094,6 +1269,22 @@ async function renderStaticDashboard() {
         continue;
       }
 
+      const workflowRule = matchDataScienceGroup(tab);
+      if (workflowRule) {
+        const key = workflowRule.groupKey;
+        if (!groupMap[key]) {
+          groupMap[key] = {
+            domain: key,
+            label: workflowRule.groupLabel,
+            type: 'data-science',
+            priority: DATA_SCIENCE_GROUPS.findIndex(group => group.groupKey === key),
+            tabs: [],
+          };
+        }
+        groupMap[key].tabs.push(tab);
+        continue;
+      }
+
       // Check custom group rules first (e.g. merge subdomains, split by path)
       const customRule = matchCustomGroup(tab.url);
       if (customRule) {
@@ -1122,7 +1313,7 @@ async function renderStaticDashboard() {
     groupMap['__landing-pages__'] = { domain: '__landing-pages__', tabs: landingTabs };
   }
 
-  // Sort: landing pages first, then domains from landing page sites, then by tab count
+  // Sort: landing pages first, then data-science groups, then priority domains, then by tab count
   // Collect exact hostnames and suffix patterns for priority sorting
   const landingHostnames = new Set(LANDING_PAGE_PATTERNS.map(p => p.hostname).filter(Boolean));
   const landingSuffixes = LANDING_PAGE_PATTERNS.map(p => p.hostnameEndsWith).filter(Boolean);
@@ -1134,6 +1325,11 @@ async function renderStaticDashboard() {
     const aIsLanding = a.domain === '__landing-pages__';
     const bIsLanding = b.domain === '__landing-pages__';
     if (aIsLanding !== bIsLanding) return aIsLanding ? -1 : 1;
+
+    const aIsDataScience = a.type === 'data-science';
+    const bIsDataScience = b.type === 'data-science';
+    if (aIsDataScience !== bIsDataScience) return aIsDataScience ? -1 : 1;
+    if (aIsDataScience && bIsDataScience) return (a.priority || 0) - (b.priority || 0);
 
     const aIsPriority = isLandingDomain(a.domain);
     const bIsPriority = isLandingDomain(b.domain);
@@ -1149,8 +1345,8 @@ async function renderStaticDashboard() {
   const openTabsSectionTitle = document.getElementById('openTabsSectionTitle');
 
   if (domainGroups.length > 0 && openTabsSection) {
-    if (openTabsSectionTitle) openTabsSectionTitle.textContent = 'Open tabs';
-    openTabsSectionCount.innerHTML = `${domainGroups.length} domain${domainGroups.length !== 1 ? 's' : ''} &nbsp;&middot;&nbsp; <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} Close all ${realTabs.length} tabs</button>`;
+    if (openTabsSectionTitle) openTabsSectionTitle.textContent = 'Visão científica das abas';
+    openTabsSectionCount.innerHTML = `${domainGroups.length} grupo${domainGroups.length !== 1 ? 's' : ''} &nbsp;&middot;&nbsp; <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} Fechar ${realTabs.length === 1 ? '1 aba' : `todas as ${realTabs.length} abas`}</button>`;
     openTabsMissionsEl.innerHTML = domainGroups.map(g => renderDomainCard(g)).join('');
     openTabsSection.style.display = 'block';
   } else if (openTabsSection) {
@@ -1161,7 +1357,7 @@ async function renderStaticDashboard() {
   const statTabs = document.getElementById('statTabs');
   if (statTabs) statTabs.textContent = openTabs.length;
 
-  // --- Check for duplicate Tab Out tabs ---
+  // --- Check for duplicate Abas Cientistas tabs ---
   checkTabOutDupes();
 
   // --- Render "Saved for Later" column ---
@@ -1188,7 +1384,12 @@ document.addEventListener('click', async (e) => {
 
   const action = actionEl.dataset.action;
 
-  // ---- Close duplicate Tab Out tabs ----
+  if (action === 'set-theme') {
+    applyTheme(actionEl.dataset.themeValue);
+    return;
+  }
+
+  // ---- Close duplicate Abas Cientistas tabs ----
   if (action === 'close-tabout-dupes') {
     await closeTabOutDupes();
     playCloseSound();
@@ -1198,7 +1399,7 @@ document.addEventListener('click', async (e) => {
       banner.style.opacity = '0';
       setTimeout(() => { banner.style.display = 'none'; banner.style.opacity = '1'; }, 400);
     }
-    showToast('Closed extra Tab Out tabs');
+    showToast('Abas extras do Abas Cientistas fechadas');
     return;
   }
 
@@ -1260,7 +1461,7 @@ document.addEventListener('click', async (e) => {
     const statTabs = document.getElementById('statTabs');
     if (statTabs) statTabs.textContent = openTabs.length;
 
-    showToast('Tab closed');
+    showToast('Aba fechada');
     return;
   }
 
@@ -1275,8 +1476,8 @@ document.addEventListener('click', async (e) => {
     try {
       await saveTabForLater({ url: tabUrl, title: tabTitle });
     } catch (err) {
-      console.error('[tab-out] Failed to save tab:', err);
-      showToast('Failed to save tab');
+      console.error('[abas-cientistas] Falha ao salvar aba:', err);
+      showToast('Não foi possível salvar a aba');
       return;
     }
 
@@ -1295,7 +1496,7 @@ document.addEventListener('click', async (e) => {
       setTimeout(() => chip.remove(), 200);
     }
 
-    showToast('Saved for later');
+    showToast('Salvo para revisar depois');
     await renderDeferredColumn();
     return;
   }
@@ -1368,8 +1569,8 @@ document.addEventListener('click', async (e) => {
     const idx = domainGroups.indexOf(group);
     if (idx !== -1) domainGroups.splice(idx, 1);
 
-    const groupLabel = group.domain === '__landing-pages__' ? 'Homepages' : (group.label || friendlyDomain(group.domain));
-    showToast(`Closed ${urls.length} tab${urls.length !== 1 ? 's' : ''} from ${groupLabel}`);
+    const groupLabel = group.domain === '__landing-pages__' ? 'Portais de entrada' : (group.label || friendlyDomain(group.domain));
+    showToast(`${urls.length === 1 ? 'Aba fechada' : `${urls.length} abas fechadas`} em ${groupLabel}`);
 
     const statTabs = document.getElementById('statTabs');
     if (statTabs) statTabs.textContent = openTabs.length;
@@ -1398,7 +1599,7 @@ document.addEventListener('click', async (e) => {
         setTimeout(() => b.remove(), 200);
       });
       card.querySelectorAll('.open-tabs-badge').forEach(badge => {
-        if (badge.textContent.includes('duplicate')) {
+        if (badge.textContent.includes('duplicada')) {
           badge.style.transition = 'opacity 0.2s';
           badge.style.opacity    = '0';
           setTimeout(() => badge.remove(), 200);
@@ -1408,7 +1609,7 @@ document.addEventListener('click', async (e) => {
       card.classList.add('has-neutral-bar');
     }
 
-    showToast('Closed duplicates, kept one copy each');
+    showToast('Duplicadas fechadas, mantendo uma cópia');
     return;
   }
 
@@ -1428,7 +1629,7 @@ document.addEventListener('click', async (e) => {
       animateCardOut(c);
     });
 
-    showToast('All tabs closed. Fresh start.');
+    showToast('Todas as abas foram fechadas. Recomeço limpo.');
     return;
   }
 });
@@ -1469,9 +1670,9 @@ document.addEventListener('input', async (e) => {
     );
 
     archiveList.innerHTML = results.map(item => renderArchiveItem(item)).join('')
-      || '<div style="font-size:12px;color:var(--muted);padding:8px 0">No results</div>';
+      || '<div style="font-size:12px;color:var(--muted);padding:8px 0">Nenhum resultado</div>';
   } catch (err) {
-    console.warn('[tab-out] Archive search failed:', err);
+    console.warn('[abas-cientistas] Busca no arquivo falhou:', err);
   }
 });
 
@@ -1479,4 +1680,5 @@ document.addEventListener('input', async (e) => {
 /* ----------------------------------------------------------------
    INITIALIZE
    ---------------------------------------------------------------- */
+initTheme();
 renderDashboard();

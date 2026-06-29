@@ -1,16 +1,17 @@
 /**
  * background.js — Service Worker for Badge Updates
  *
- * Chrome's "always-on" background script for Tab Out.
- * Its only job: keep the toolbar badge showing the current open tab count.
+ * Service worker do Abas Cientistas.
+ * Criado e adaptado por João Victor para fluxo de trabalho cientista de dados.
+ * Mantém o badge da barra do Chrome com a contagem de abas abertas.
  *
  * Since we no longer have a server, we query chrome.tabs directly.
  * The badge counts real web tabs (skipping chrome:// and extension pages).
  *
  * Color coding gives a quick at-a-glance health signal:
- *   Green  (#3d7a4a) → 1–10 tabs  (focused, manageable)
- *   Amber  (#b8892e) → 11–20 tabs (getting busy)
- *   Red    (#b35a5a) → 21+ tabs   (time to cull!)
+ *   Verde  → 1–10 abas
+ *   Âmbar  → 11–20 abas
+ *   Vermelho → 21+ abas
  */
 
 // ─── Badge updater ────────────────────────────────────────────────────────────
