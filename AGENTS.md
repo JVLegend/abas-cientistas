@@ -8,6 +8,8 @@ Transformar a nova aba do Chrome em uma visão de workspace para ciência de dad
 
 - GitHub e versionamento
 - Código e documentação
+- Notebooks e experimentos
+- Deploys, produto e observabilidade
 - Aplicativos e ferramentas
 - Mensageria e coordenação
 - YouTube e vídeos

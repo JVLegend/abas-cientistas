@@ -504,8 +504,18 @@ function renderExtensionOnlyState() {
   const openTabsMissionsEl   = document.getElementById('openTabsMissions');
   const openTabsSectionCount = document.getElementById('openTabsSectionCount');
   const openTabsSectionTitle = document.getElementById('openTabsSectionTitle');
+  const workspaceSidebar     = document.getElementById('workspaceSidebar');
+  const focusPanel           = document.getElementById('focusPanel');
+  const cleanupPanel         = document.getElementById('cleanupPanel');
+  const statusSummary        = document.getElementById('statusSummary');
+  const dashboardColumns     = document.getElementById('dashboardColumns');
 
   if (!openTabsSection || !openTabsMissionsEl) return;
+  if (dashboardColumns) dashboardColumns.classList.add('no-live-data');
+  if (workspaceSidebar) workspaceSidebar.style.display = 'none';
+  if (focusPanel) focusPanel.style.display = 'none';
+  if (cleanupPanel) cleanupPanel.style.display = 'none';
+  if (statusSummary) statusSummary.innerHTML = '<span>Instale como extensão para ler abas reais</span>';
 
   if (openTabsSectionTitle) openTabsSectionTitle.textContent = 'Instale como extensão';
   if (openTabsSectionCount) openTabsSectionCount.textContent = '0 abas lidas';
@@ -778,6 +788,18 @@ const ICONS = {
    IN-MEMORY STORE FOR OPEN-TAB GROUPS
    ---------------------------------------------------------------- */
 let domainGroups = [];
+let activeGroupFilter = 'all';
+let activeSearchQuery = '';
+
+const TAB_STATUS = {
+  code:    { label: 'Codar', className: 'status-code', score: 95 },
+  execute: { label: 'Executar', className: 'status-execute', score: 88 },
+  respond: { label: 'Responder', className: 'status-respond', score: 84 },
+  read:    { label: 'Ler', className: 'status-read', score: 76 },
+  watch:   { label: 'Assistir', className: 'status-watch', score: 58 },
+  review:  { label: 'Revisar', className: 'status-review', score: 68 },
+  close:   { label: 'Fechar provável', className: 'status-close', score: 30 },
+};
 
 
 /* ----------------------------------------------------------------
@@ -803,6 +825,217 @@ function getRealTabs() {
   });
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getGroupKey(group) {
+  return group.groupKey || group.domain;
+}
+
+function getGroupConfig(groupKey) {
+  return DATA_SCIENCE_GROUPS.find(group => group.groupKey === groupKey) || null;
+}
+
+function parseTabUrl(tab) {
+  try { return new URL(tab.url || ''); }
+  catch { return null; }
+}
+
+function getTabHostname(tab) {
+  const parsed = parseTabUrl(tab);
+  return parsed ? parsed.hostname : '';
+}
+
+function isLocalDevelopment(tab) {
+  const parsed = parseTabUrl(tab);
+  if (!parsed) return false;
+  return ['localhost', '127.0.0.1', '0.0.0.0'].includes(parsed.hostname) || parsed.hostname.endsWith('.local');
+}
+
+function detectTabStatus(tab, groupKey = '') {
+  const parsed = parseTabUrl(tab);
+  const hostname = normalizeForMatch(parsed ? parsed.hostname : '');
+  const pathname = normalizeForMatch(parsed ? parsed.pathname : '');
+  const text = normalizeForMatch(`${hostname} ${pathname} ${tab.title || ''}`);
+
+  if (
+    isLocalDevelopment(tab) ||
+    pathname.includes('/pull/') ||
+    pathname.includes('/issues/') ||
+    text.includes('traceback') ||
+    text.includes('error') ||
+    text.includes('exception') ||
+    text.includes('debug')
+  ) return TAB_STATUS.code;
+
+  if (
+    groupKey === 'ds-deploy' ||
+    text.includes('deploy') ||
+    text.includes('build') ||
+    text.includes('logs') ||
+    text.includes('dashboard') ||
+    text.includes('database')
+  ) return TAB_STATUS.execute;
+
+  if (
+    groupKey === 'ds-messaging' ||
+    hostname.includes('mail.google') ||
+    hostname.includes('slack') ||
+    hostname.includes('whatsapp') ||
+    hostname.includes('discord') ||
+    hostname.includes('teams')
+  ) return TAB_STATUS.respond;
+
+  if (
+    groupKey === 'ds-papers' ||
+    hostname.includes('arxiv') ||
+    hostname.includes('openreview') ||
+    hostname.includes('scholar') ||
+    text.includes('paper') ||
+    text.includes('preprint')
+  ) return TAB_STATUS.read;
+
+  if (
+    groupKey === 'ds-talks' ||
+    groupKey === 'ds-youtube' ||
+    hostname.includes('youtube') ||
+    hostname.includes('coursera') ||
+    hostname.includes('udemy') ||
+    hostname.includes('edx')
+  ) return TAB_STATUS.watch;
+
+  if (groupKey === 'ds-shorts' || text.includes('shorts') || text.includes('reels') || text.includes('tiktok')) {
+    return TAB_STATUS.close;
+  }
+
+  if (groupKey === 'ds-ai' || groupKey === 'ds-notebooks' || groupKey === 'ds-apps') return TAB_STATUS.review;
+  return TAB_STATUS.review;
+}
+
+function getTabLabel(tab, groupDomain = '') {
+  let label = cleanTitle(smartTitle(stripTitleNoise(tab.title || ''), tab.url), groupDomain);
+  try {
+    const parsed = new URL(tab.url);
+    if (parsed.hostname === 'localhost' && parsed.port) label = `${parsed.port} ${label}`;
+  } catch {}
+  return label || tab.url || 'Aba sem título';
+}
+
+function tabMatchesSearch(tab, query, groupLabel = '') {
+  if (!query) return true;
+  const haystack = normalizeForMatch(`${tab.title || ''} ${tab.url || ''} ${groupLabel}`);
+  return haystack.includes(normalizeForMatch(query));
+}
+
+function getFilteredGroups(groups) {
+  return groups
+    .filter(group => activeGroupFilter === 'all' || getGroupKey(group) === activeGroupFilter)
+    .map(group => ({
+      ...group,
+      tabs: (group.tabs || []).filter(tab => tabMatchesSearch(tab, activeSearchQuery, group.label || friendlyDomain(group.domain))),
+    }))
+    .filter(group => group.tabs.length > 0);
+}
+
+function getDuplicateUrlEntries(tabs) {
+  const counts = {};
+  for (const tab of tabs) {
+    if (!tab.url) continue;
+    counts[tab.url] = (counts[tab.url] || 0) + 1;
+  }
+  return Object.entries(counts).filter(([, count]) => count > 1);
+}
+
+function scoreFocusTab(tab, groupKey = '') {
+  const status = detectTabStatus(tab, groupKey);
+  const parsed = parseTabUrl(tab);
+  const text = normalizeForMatch(`${parsed ? parsed.hostname : ''} ${parsed ? parsed.pathname : ''} ${tab.title || ''}`);
+  let score = status.score;
+  if (tab.active) score += 20;
+  if (text.includes('pull') || text.includes('issue') || text.includes('error') || text.includes('deadline')) score += 12;
+  if (text.includes('paper') || text.includes('arxiv') || text.includes('benchmark')) score += 8;
+  if (groupKey === 'ds-shorts') score -= 24;
+  return score;
+}
+
+function buildCleanupInsights(realTabs, groups) {
+  const insights = [];
+  const duplicateEntries = getDuplicateUrlEntries(realTabs);
+  const duplicateExtras = duplicateEntries.reduce((sum, [, count]) => sum + count - 1, 0);
+
+  if (duplicateExtras > 0) {
+    insights.push({
+      tone: 'warning',
+      title: `${duplicateExtras} aba${duplicateExtras !== 1 ? 's' : ''} duplicada${duplicateExtras !== 1 ? 's' : ''}`,
+      detail: 'Dá para manter uma cópia de cada URL e reduzir ruído imediatamente.',
+      action: 'dedup',
+      urls: duplicateEntries.map(([url]) => url),
+    });
+  }
+
+  if (realTabs.length >= 35) {
+    insights.push({
+      tone: 'danger',
+      title: `${realTabs.length} abas abertas`,
+      detail: 'Sessão muito carregada. Priorize foco, pesquisa e execução antes de abrir mais contexto.',
+      action: 'none',
+    });
+  }
+
+  const groupByKey = Object.fromEntries(groups.map(group => [getGroupKey(group), group]));
+  const shortsCount = groupByKey['ds-shorts'] ? groupByKey['ds-shorts'].tabs.length : 0;
+  if (shortsCount >= 2) {
+    insights.push({
+      tone: 'warning',
+      title: `${shortsCount} curtos abertos`,
+      detail: 'Bom para inspiração rápida, ruim para foco profundo. Vale revisar e fechar.',
+      action: 'filter',
+      groupKey: 'ds-shorts',
+    });
+  }
+
+  const messagingCount = groupByKey['ds-messaging'] ? groupByKey['ds-messaging'].tabs.length : 0;
+  if (messagingCount >= 4) {
+    insights.push({
+      tone: 'info',
+      title: `${messagingCount} abas de mensageria`,
+      detail: 'Separe um bloco para responder e depois volte ao código/pesquisa.',
+      action: 'filter',
+      groupKey: 'ds-messaging',
+    });
+  }
+
+  const codeCount = (groupByKey['ds-code'] ? groupByKey['ds-code'].tabs.length : 0) + (groupByKey['ds-github'] ? groupByKey['ds-github'].tabs.length : 0);
+  if (codeCount >= 8) {
+    insights.push({
+      tone: 'info',
+      title: `${codeCount} abas de código/GitHub`,
+      detail: 'Há trabalho ativo suficiente para consolidar por repo, issue ou PR.',
+      action: 'filter',
+      groupKey: 'ds-github',
+    });
+  }
+
+  const localhostCount = realTabs.filter(isLocalDevelopment).length;
+  if (localhostCount >= 3) {
+    insights.push({
+      tone: 'info',
+      title: `${localhostCount} ambientes locais`,
+      detail: 'Confira portas e projetos para evitar testar a tela errada.',
+      action: 'filter',
+      groupKey: 'ds-code',
+    });
+  }
+
+  return insights.slice(0, 5);
+}
+
 /**
  * checkTabOutDupes()
  *
@@ -823,25 +1056,180 @@ function checkTabOutDupes() {
   }
 }
 
+function renderWorkspaceSidebar(groups, realTabs, cleanupItems) {
+  const sidebar = document.getElementById('workspaceSidebar');
+  if (!sidebar) return;
+
+  if (!canReadChromeTabs || groups.length === 0) {
+    sidebar.style.display = 'none';
+    return;
+  }
+
+  const counts = {};
+  for (const group of groups) counts[getGroupKey(group)] = (group.tabs || []).length;
+
+  const buttons = [
+    `<button class="group-nav-item ${activeGroupFilter === 'all' ? 'active' : ''}" data-action="filter-group" data-group-key="all">
+      <span class="group-nav-icon">ALL</span>
+      <span class="group-nav-text">Todos</span>
+      <span class="group-nav-count">${realTabs.length}</span>
+    </button>`,
+    ...DATA_SCIENCE_GROUPS
+      .filter(group => counts[group.groupKey])
+      .map(group => `
+        <button class="group-nav-item ${activeGroupFilter === group.groupKey ? 'active' : ''}" data-action="filter-group" data-group-key="${group.groupKey}">
+          <span class="group-nav-icon">${escapeHtml(group.groupIcon || group.groupShort || 'DS')}</span>
+          <span class="group-nav-text">${escapeHtml(group.groupShort || group.groupLabel)}</span>
+          <span class="group-nav-count">${counts[group.groupKey]}</span>
+        </button>`)
+  ].join('');
+
+  sidebar.innerHTML = `
+    <div class="sidebar-title">Workspace</div>
+    <div class="group-nav">${buttons}</div>
+    <div class="sidebar-footnote">${cleanupItems.length} alerta${cleanupItems.length !== 1 ? 's' : ''} de organização</div>
+  `;
+  sidebar.style.display = 'block';
+}
+
+function renderStatusSummary(realTabs) {
+  const summary = document.getElementById('statusSummary');
+  if (!summary) return;
+
+  if (!canReadChromeTabs) {
+    summary.innerHTML = '<span>Extensão não carregada</span>';
+    return;
+  }
+
+  const statusCounts = {};
+  for (const group of domainGroups) {
+    for (const tab of group.tabs || []) {
+      const status = detectTabStatus(tab, getGroupKey(group));
+      statusCounts[status.label] = (statusCounts[status.label] || 0) + 1;
+    }
+  }
+
+  const top = Object.entries(statusCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([label, count]) => `<span>${count} ${escapeHtml(label)}</span>`)
+    .join('');
+
+  summary.innerHTML = top || `<span>${realTabs.length} abas organizadas</span>`;
+}
+
+function renderFocusPanel(realTabs, groups) {
+  const panel = document.getElementById('focusPanel');
+  if (!panel) return;
+
+  if (!canReadChromeTabs || realTabs.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  const candidates = [];
+  for (const group of groups) {
+    const groupKey = getGroupKey(group);
+    for (const tab of group.tabs || []) {
+      candidates.push({ tab, groupKey, groupLabel: group.label || friendlyDomain(group.domain) });
+    }
+  }
+
+  const focusTabs = candidates
+    .sort((a, b) => scoreFocusTab(b.tab, b.groupKey) - scoreFocusTab(a.tab, a.groupKey))
+    .slice(0, 4);
+
+  const items = focusTabs.map(({ tab, groupKey, groupLabel }) => {
+    const status = detectTabStatus(tab, groupKey);
+    const label = getTabLabel(tab, groupKey);
+    const safeUrl = escapeHtml(tab.url || '');
+    const safeTitle = escapeHtml(label);
+    const hostname = getTabHostname(tab);
+    const faviconUrl = hostname ? `https://www.google.com/s2/favicons?domain=${hostname}&sz=16` : '';
+
+    return `
+      <div class="focus-item">
+        ${faviconUrl ? `<img class="focus-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
+        <div class="focus-info">
+          <button class="focus-title" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeTitle}">${safeTitle}</button>
+          <div class="focus-meta">
+            <span>${escapeHtml(groupLabel)}</span>
+            <span class="tab-status-pill ${status.className}">${status.label}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="panel-header">
+      <h2>Foco agora</h2>
+      <span>${focusTabs.length}</span>
+    </div>
+    <div class="focus-list">${items}</div>
+  `;
+  panel.style.display = 'block';
+}
+
+function renderCleanupPanel(cleanupItems) {
+  const panel = document.getElementById('cleanupPanel');
+  if (!panel) return;
+
+  if (!canReadChromeTabs || cleanupItems.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  const items = cleanupItems.map(item => {
+    let actionHtml = '';
+    if (item.action === 'dedup') {
+      const urls = (item.urls || []).map(url => encodeURIComponent(url)).join(',');
+      actionHtml = `<button class="cleanup-action" data-action="dedup-keep-one" data-dupe-urls="${urls}">Resolver</button>`;
+    } else if (item.action === 'filter') {
+      actionHtml = `<button class="cleanup-action" data-action="filter-group" data-group-key="${escapeHtml(item.groupKey)}">Ver</button>`;
+    }
+
+    return `
+      <div class="cleanup-item cleanup-${item.tone}">
+        <div>
+          <div class="cleanup-title">${escapeHtml(item.title)}</div>
+          <div class="cleanup-detail">${escapeHtml(item.detail)}</div>
+        </div>
+        ${actionHtml}
+      </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="panel-header">
+      <h2>Limpeza sugerida</h2>
+      <span>${cleanupItems.length}</span>
+    </div>
+    <div class="cleanup-list">${items}</div>
+  `;
+  panel.style.display = 'block';
+}
+
 
 /* ----------------------------------------------------------------
    OVERFLOW CHIPS ("+N more" expand button in domain cards)
    ---------------------------------------------------------------- */
 
-function buildOverflowChips(hiddenTabs, urlCounts = {}) {
+function buildOverflowChips(hiddenTabs, urlCounts = {}, group = {}) {
+  const groupKey = getGroupKey(group);
   const hiddenChips = hiddenTabs.map(tab => {
-    const label    = cleanTitle(smartTitle(stripTitleNoise(tab.title || ''), tab.url), '');
+    const label    = getTabLabel(tab, group.domain || '');
+    const status   = detectTabStatus(tab, groupKey);
     const count    = urlCounts[tab.url] || 1;
     const dupeTag  = count > 1 ? ` <span class="chip-dupe-badge">(${count}x)</span>` : '';
     const chipClass = count > 1 ? ' chip-has-dupes' : '';
-    const safeUrl   = (tab.url || '').replace(/"/g, '&quot;');
-    const safeTitle = label.replace(/"/g, '&quot;');
+    const safeUrl   = escapeHtml(tab.url || '');
+    const safeTitle = escapeHtml(label);
     let domain = '';
     try { domain = new URL(tab.url).hostname; } catch {}
     const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=16` : '';
     return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeTitle}">
       ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
-      <span class="chip-text">${label}</span>${dupeTag}
+      <span class="chip-text">${safeTitle}</span>${dupeTag}
+      <span class="tab-status-pill ${status.className}">${status.label}</span>
       <div class="chip-actions">
         <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Revisar depois">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
@@ -876,6 +1264,9 @@ function renderDomainCard(group) {
   const tabCount  = tabs.length;
   const isLanding = group.domain === '__landing-pages__';
   const stableId  = 'domain-' + group.domain.replace(/[^a-z0-9]/g, '-');
+  const groupKey  = getGroupKey(group);
+  const groupConfig = getGroupConfig(groupKey);
+  const groupTitle = isLanding ? 'Portais de entrada' : (group.label || friendlyDomain(group.domain));
 
   // Count duplicates (exact URL match)
   const urlCounts = {};
@@ -907,23 +1298,20 @@ function renderDomainCard(group) {
   const extraCount  = uniqueTabs.length - visibleTabs.length;
 
   const pageChips = visibleTabs.map(tab => {
-    let label = cleanTitle(smartTitle(stripTitleNoise(tab.title || ''), tab.url), group.domain);
-    // For localhost tabs, prepend port number so you can tell projects apart
-    try {
-      const parsed = new URL(tab.url);
-      if (parsed.hostname === 'localhost' && parsed.port) label = `${parsed.port} ${label}`;
-    } catch {}
+    const label    = getTabLabel(tab, group.domain);
+    const status   = detectTabStatus(tab, groupKey);
     const count    = urlCounts[tab.url];
     const dupeTag  = count > 1 ? ` <span class="chip-dupe-badge">(${count}x)</span>` : '';
     const chipClass = count > 1 ? ' chip-has-dupes' : '';
-    const safeUrl   = (tab.url || '').replace(/"/g, '&quot;');
-    const safeTitle = label.replace(/"/g, '&quot;');
+    const safeUrl   = escapeHtml(tab.url || '');
+    const safeTitle = escapeHtml(label);
     let domain = '';
     try { domain = new URL(tab.url).hostname; } catch {}
     const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=16` : '';
     return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeTitle}">
       ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
-      <span class="chip-text">${label}</span>${dupeTag}
+      <span class="chip-text">${safeTitle}</span>${dupeTag}
+      <span class="tab-status-pill ${status.className}">${status.label}</span>
       <div class="chip-actions">
         <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Revisar depois">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
@@ -933,7 +1321,7 @@ function renderDomainCard(group) {
         </button>
       </div>
     </div>`;
-  }).join('') + (extraCount > 0 ? buildOverflowChips(uniqueTabs.slice(8), urlCounts) : '');
+  }).join('') + (extraCount > 0 ? buildOverflowChips(uniqueTabs.slice(8), urlCounts, group) : '');
 
   let actionsHtml = `
     <button class="action-btn close-tabs" data-action="close-domain-tabs" data-domain-id="${stableId}">
@@ -954,7 +1342,8 @@ function renderDomainCard(group) {
       <div class="status-bar"></div>
       <div class="mission-content">
         <div class="mission-top">
-          <span class="mission-name">${isLanding ? 'Portais de entrada' : (group.label || friendlyDomain(group.domain))}</span>
+          ${groupConfig ? `<span class="mission-icon">${escapeHtml(groupConfig.groupIcon || groupConfig.groupShort || 'DS')}</span>` : ''}
+          <span class="mission-name">${escapeHtml(groupTitle)}</span>
           ${tabBadge}
           ${dupeBadge}
         </div>
@@ -1083,34 +1472,63 @@ const DATA_SCIENCE_GROUPS = [
   {
     groupKey: 'ds-github',
     groupLabel: 'GitHub e versionamento',
+    groupShort: 'GitHub',
+    groupIcon: 'GH',
     hostnames: ['github.com', 'gist.github.com', 'github.dev'],
     hostIncludes: ['githubusercontent', 'gitlab', 'bitbucket'],
-    keywords: ['pull request', 'issue', 'commit', 'branch', 'repository', 'repo', 'gist'],
+    pathIncludes: ['/pull/', '/issues/', '/commit/', '/actions/', '/compare/'],
+    keywords: ['pull request', 'issue', 'commit', 'branch', 'repository', 'repo', 'gist', 'merge', 'review'],
   },
   {
     groupKey: 'ds-code',
     groupLabel: 'Código e documentação',
-    hostnames: ['stackoverflow.com', 'developer.mozilla.org', 'docs.python.org', 'pandas.pydata.org', 'numpy.org', 'scikit-learn.org', 'pytorch.org', 'tensorflow.org'],
-    hostIncludes: ['readthedocs', 'docs.', 'api.', 'reference', 'storybook'],
-    keywords: ['documentation', 'docs', 'api reference', 'sdk', 'typescript', 'python', 'notebook', 'colab', 'jupyter'],
+    groupShort: 'Código',
+    groupIcon: '</>',
+    hostnames: ['stackoverflow.com', 'developer.mozilla.org', 'docs.python.org', 'pandas.pydata.org', 'numpy.org', 'scikit-learn.org', 'pytorch.org', 'tensorflow.org', 'localhost', '127.0.0.1'],
+    hostIncludes: ['readthedocs', 'docs.', 'api.', 'reference', 'storybook', 'localhost'],
+    keywords: ['documentation', 'docs', 'api reference', 'sdk', 'typescript', 'python', 'debug', 'error', 'traceback', 'localhost'],
+  },
+  {
+    groupKey: 'ds-notebooks',
+    groupLabel: 'Notebooks e experimentos',
+    groupShort: 'Experimentos',
+    groupIcon: 'NB',
+    hostnames: ['colab.research.google.com', 'kaggle.com', 'www.kaggle.com', 'observablehq.com', 'www.observablehq.com'],
+    hostIncludes: ['databricks', 'jupyter', 'notebook', 'sagemaker', 'vertex'],
+    keywords: ['notebook', 'colab', 'kaggle', 'dataset', 'experiment', 'run', 'training', 'model card', 'benchmark'],
+  },
+  {
+    groupKey: 'ds-deploy',
+    groupLabel: 'Deploys, produto e observabilidade',
+    groupShort: 'Deploy',
+    groupIcon: 'UP',
+    hostnames: ['vercel.com', 'www.vercel.com', 'supabase.com', 'www.supabase.com', 'railway.app', 'www.railway.app'],
+    hostIncludes: ['netlify', 'render', 'fly.io', 'sentry', 'datadog', 'newrelic', 'grafana', 'metabase', 'lookerstudio'],
+    keywords: ['deploy', 'deployment', 'logs', 'monitoring', 'dashboard', 'database', 'build', 'status', 'production'],
   },
   {
     groupKey: 'ds-apps',
     groupLabel: 'Aplicativos e ferramentas',
-    hostnames: ['colab.research.google.com', 'kaggle.com', 'www.kaggle.com', 'huggingface.co', 'vercel.com', 'notion.so', 'www.notion.so', 'figma.com', 'www.figma.com'],
-    hostIncludes: ['databricks', 'snowflake', 'supabase', 'railway', 'replit', 'codesandbox', 'observablehq', 'lookerstudio', 'metabase'],
-    keywords: ['dashboard', 'workspace', 'project', 'app', 'deploy', 'dataset', 'model card', 'space'],
+    groupShort: 'Apps',
+    groupIcon: 'AP',
+    hostnames: ['huggingface.co', 'notion.so', 'www.notion.so', 'figma.com', 'www.figma.com', 'replit.com', 'codesandbox.io'],
+    hostIncludes: ['snowflake', 'airtable', 'linear', 'miro', 'zapier'],
+    keywords: ['workspace', 'project', 'app', 'space', 'tool', 'canvas', 'board'],
   },
   {
     groupKey: 'ds-messaging',
     groupLabel: 'Mensageria e coordenação',
+    groupShort: 'Mensagens',
+    groupIcon: 'DM',
     hostnames: ['mail.google.com', 'web.whatsapp.com', 'app.slack.com', 'discord.com', 'teams.microsoft.com', 'chat.google.com', 'telegram.org'],
-    hostIncludes: ['slack', 'whatsapp', 'discord', 'telegram', 'teams', 'linear', 'trello', 'asana'],
-    keywords: ['inbox', 'dm', 'mensagem', 'mensageria', 'chat', 'thread', 'kanban', 'task'],
+    hostIncludes: ['slack', 'whatsapp', 'discord', 'telegram', 'teams', 'trello', 'asana'],
+    keywords: ['inbox', 'dm', 'mensagem', 'mensageria', 'chat', 'thread', 'task'],
   },
   {
     groupKey: 'ds-shorts',
     groupLabel: 'Curtos e inspiração rápida',
+    groupShort: 'Curtos',
+    groupIcon: 'S',
     hostnames: ['www.youtube.com', 'youtube.com', 'm.youtube.com', 'www.tiktok.com', 'www.instagram.com'],
     pathIncludes: ['/shorts/', '/reels/', '/reel/'],
     keywords: ['shorts', 'reels', 'tiktok', 'clip', 'short'],
@@ -1118,6 +1536,8 @@ const DATA_SCIENCE_GROUPS = [
   {
     groupKey: 'ds-talks',
     groupLabel: 'Palestras, aulas e cursos',
+    groupShort: 'Aulas',
+    groupIcon: 'ED',
     hostnames: ['www.youtube.com', 'youtube.com', 'm.youtube.com', 'coursera.org', 'www.coursera.org', 'edx.org', 'www.edx.org', 'udemy.com', 'www.udemy.com'],
     hostIncludes: ['deeplearning.ai', 'fast.ai', 'datacamp', 'pluralsight'],
     keywords: ['lecture', 'talk', 'keynote', 'palestra', 'aula', 'curso', 'course', 'tutorial', 'workshop', 'conference'],
@@ -1125,12 +1545,16 @@ const DATA_SCIENCE_GROUPS = [
   {
     groupKey: 'ds-youtube',
     groupLabel: 'YouTube e vídeos',
+    groupShort: 'YouTube',
+    groupIcon: 'YT',
     hostnames: ['www.youtube.com', 'youtube.com', 'm.youtube.com', 'youtu.be'],
     keywords: ['youtube', 'watch', 'playlist', 'video'],
   },
   {
     groupKey: 'ds-papers',
     groupLabel: 'Papers e pesquisa',
+    groupShort: 'Papers',
+    groupIcon: 'PX',
     hostnames: ['arxiv.org', 'scholar.google.com', 'paperswithcode.com', 'openreview.net', 'semantic-scholar.org', 'www.semanticscholar.org'],
     hostIncludes: ['nature', 'science.org', 'acm.org', 'ieee', 'springer', 'elsevier', 'jmlr', 'neurips', 'icml', 'iclr'],
     keywords: ['paper', 'preprint', 'article', 'arxiv', 'benchmark', 'state of the art', 'sota', 'dataset', 'ablation'],
@@ -1138,6 +1562,8 @@ const DATA_SCIENCE_GROUPS = [
   {
     groupKey: 'ds-ai',
     groupLabel: 'IA e copilotos',
+    groupShort: 'IA',
+    groupIcon: 'AI',
     hostnames: ['chatgpt.com', 'www.chatgpt.com', 'chat.openai.com', 'claude.ai', 'www.claude.ai', 'gemini.google.com', 'perplexity.ai'],
     hostIncludes: ['openai', 'anthropic', 'cursor', 'v0.dev'],
     keywords: ['prompt', 'assistant', 'copilot', 'agent', 'llm', 'chat'],
@@ -1203,14 +1629,20 @@ async function renderStaticDashboard() {
   // --- Fetch tabs ---
   await fetchOpenTabs();
   const realTabs = getRealTabs();
+  const dashboardColumns = document.getElementById('dashboardColumns');
 
   if (!canReadChromeTabs) {
     renderExtensionOnlyState();
     const statTabs = document.getElementById('statTabs');
     if (statTabs) statTabs.textContent = '—';
+    const statGroups = document.getElementById('statGroups');
+    if (statGroups) statGroups.textContent = '—';
+    const statCleanup = document.getElementById('statCleanup');
+    if (statCleanup) statCleanup.textContent = '—';
     await renderDeferredColumn();
     return;
   }
+  if (dashboardColumns) dashboardColumns.classList.remove('no-live-data');
 
   // --- Group tabs by domain ---
   // Optional landing page rules from config.local.js can still be merged in,
@@ -1275,6 +1707,7 @@ async function renderStaticDashboard() {
         if (!groupMap[key]) {
           groupMap[key] = {
             domain: key,
+            groupKey: key,
             label: workflowRule.groupLabel,
             type: 'data-science',
             priority: DATA_SCIENCE_GROUPS.findIndex(group => group.groupKey === key),
@@ -1289,7 +1722,7 @@ async function renderStaticDashboard() {
       const customRule = matchCustomGroup(tab.url);
       if (customRule) {
         const key = customRule.groupKey;
-        if (!groupMap[key]) groupMap[key] = { domain: key, label: customRule.groupLabel, tabs: [] };
+        if (!groupMap[key]) groupMap[key] = { domain: key, groupKey: key, label: customRule.groupLabel, tabs: [] };
         groupMap[key].tabs.push(tab);
         continue;
       }
@@ -1337,6 +1770,14 @@ async function renderStaticDashboard() {
 
     return b.tabs.length - a.tabs.length;
   });
+  if (dashboardColumns) dashboardColumns.classList.toggle('no-live-data', domainGroups.length === 0);
+
+  const cleanupItems = buildCleanupInsights(realTabs, domainGroups);
+  const visibleGroups = getFilteredGroups(domainGroups);
+  renderWorkspaceSidebar(domainGroups, realTabs, cleanupItems);
+  renderFocusPanel(realTabs, domainGroups);
+  renderCleanupPanel(cleanupItems);
+  renderStatusSummary(realTabs);
 
   // --- Render domain cards ---
   const openTabsSection      = document.getElementById('openTabsSection');
@@ -1344,18 +1785,33 @@ async function renderStaticDashboard() {
   const openTabsSectionCount = document.getElementById('openTabsSectionCount');
   const openTabsSectionTitle = document.getElementById('openTabsSectionTitle');
 
-  if (domainGroups.length > 0 && openTabsSection) {
+  if (visibleGroups.length > 0 && openTabsSection) {
     if (openTabsSectionTitle) openTabsSectionTitle.textContent = 'Visão científica das abas';
-    openTabsSectionCount.innerHTML = `${domainGroups.length} grupo${domainGroups.length !== 1 ? 's' : ''} &nbsp;&middot;&nbsp; <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} Fechar ${realTabs.length === 1 ? '1 aba' : `todas as ${realTabs.length} abas`}</button>`;
-    openTabsMissionsEl.innerHTML = domainGroups.map(g => renderDomainCard(g)).join('');
+    const filterText = activeGroupFilter !== 'all' || activeSearchQuery
+      ? `${visibleGroups.length} de ${domainGroups.length} grupo${domainGroups.length !== 1 ? 's' : ''}`
+      : `${domainGroups.length} grupo${domainGroups.length !== 1 ? 's' : ''}`;
+    openTabsSectionCount.innerHTML = `${filterText} &nbsp;&middot;&nbsp; <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} Fechar ${realTabs.length === 1 ? '1 aba' : `todas as ${realTabs.length} abas`}</button>`;
+    openTabsMissionsEl.innerHTML = visibleGroups.map(g => renderDomainCard(g)).join('');
     openTabsSection.style.display = 'block';
   } else if (openTabsSection) {
-    openTabsSection.style.display = 'none';
+    if (openTabsSectionTitle) openTabsSectionTitle.textContent = 'Nenhum resultado';
+    if (openTabsSectionCount) openTabsSectionCount.textContent = '0 grupos';
+    openTabsMissionsEl.innerHTML = `
+      <div class="missions-empty-state">
+        <div class="empty-title">Nada encontrado.</div>
+        <div class="empty-subtitle">Tente outro termo ou volte para todos os grupos.</div>
+      </div>
+    `;
+    openTabsSection.style.display = 'block';
   }
 
   // --- Footer stats ---
   const statTabs = document.getElementById('statTabs');
   if (statTabs) statTabs.textContent = openTabs.length;
+  const statGroups = document.getElementById('statGroups');
+  if (statGroups) statGroups.textContent = domainGroups.length;
+  const statCleanup = document.getElementById('statCleanup');
+  if (statCleanup) statCleanup.textContent = cleanupItems.length;
 
   // --- Check for duplicate Abas Cientistas tabs ---
   checkTabOutDupes();
@@ -1386,6 +1842,12 @@ document.addEventListener('click', async (e) => {
 
   if (action === 'set-theme') {
     applyTheme(actionEl.dataset.themeValue);
+    return;
+  }
+
+  if (action === 'filter-group') {
+    activeGroupFilter = actionEl.dataset.groupKey || 'all';
+    await renderStaticDashboard();
     return;
   }
 
@@ -1648,6 +2110,12 @@ document.addEventListener('click', (e) => {
 
 // ---- Archive search — filter archived items as user types ----
 document.addEventListener('input', async (e) => {
+  if (e.target.id === 'tabSearch') {
+    activeSearchQuery = e.target.value.trim();
+    await renderStaticDashboard();
+    return;
+  }
+
   if (e.target.id !== 'archiveSearch') return;
 
   const q = e.target.value.trim().toLowerCase();

@@ -22,7 +22,9 @@ Este repositório nasce como uma ferramenta própria para cientistas de dados, p
 
 - **GitHub e versionamento**: GitHub, Gists, GitLab, issues, pull requests, commits e repositórios.
 - **Código e documentação**: Stack Overflow, MDN, docs de Python, pandas, NumPy, scikit-learn, PyTorch, TensorFlow e APIs.
-- **Aplicativos e ferramentas**: Colab, Kaggle, Hugging Face, Vercel, Notion, Figma, Databricks, Supabase, Railway e dashboards.
+- **Notebooks e experimentos**: Colab, Kaggle, Observable, Databricks, Jupyter, datasets, benchmarks e execuções de treino.
+- **Deploys, produto e observabilidade**: Vercel, Supabase, Railway, logs, builds, dashboards, bancos e monitoramento.
+- **Aplicativos e ferramentas**: Hugging Face, Notion, Figma, Replit, CodeSandbox, Snowflake, Airtable e ferramentas de apoio.
 - **Mensageria e coordenação**: Gmail, WhatsApp Web, Slack, Discord, Teams, Linear, Trello e tarefas.
 - **Curtos e inspiração rápida**: YouTube Shorts, Reels, TikTok e clipes.
 - **Palestras, aulas e cursos**: YouTube, Coursera, edX, Udemy, fast.ai, DataCamp, workshops e talks.
@@ -33,8 +35,12 @@ Este repositório nasce como uma ferramenta própria para cientistas de dados, p
 ## Recursos
 
 - Agrupamento automático das abas abertas por contexto de trabalho.
+- Status por aba: `Codar`, `Executar`, `Responder`, `Ler`, `Assistir`, `Revisar` e `Fechar provável`.
+- Painel **Foco agora** com as abas mais importantes para retomar o trabalho.
+- Painel **Limpeza sugerida** para duplicadas, excesso de abas, curtos, mensageria e ambientes locais.
+- Sidebar de grupos com filtro rápido e busca global por projeto, repo, paper, app ou domínio.
 - Tema claro e escuro com preferência salva no navegador.
-- Tipografia com Manrope na interface e Fraunces nos títulos/números.
+- Tipografia com fontes de sistema, sem dependência remota, para evitar bloqueios de CSP no Chrome.
 - Fontes maiores, cantos arredondados e microanimações leves.
 - Lista **Revisar depois** para salvar links importantes antes de fechar.
 - Detecção de abas duplicadas com ação rápida para manter uma cópia.
